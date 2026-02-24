@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:developer';
 
+import 'package:contaqa/app/attendence_cycle/models/app_version.dart';
 import 'package:contaqa/app/attendence_cycle/models/check.dart';
 import 'package:contaqa/app/attendence_cycle/models/login_model.dart';
 import 'package:contaqa/app/attendence_cycle/models/monthly_attendence.dart';
@@ -7,133 +9,159 @@ import 'package:contaqa/app/attendence_cycle/models/server_time.dart';
 import 'package:contaqa/services/dio_client.dart';
 
 class AttendenceApis {
+  static const String baseUrl = 'http://65.109.226.255:11000';
+
+  /* ----------------------------- LOGIN ----------------------------- */
+
   Future<Login?> login(String email, String password) async {
-    String url = 'http://65.109.226.255:11000/login-odoo/';
-
-    try {
-      final response = await Client.client.post(url, data: {"username": email, "password": password});
-
-      if (response.statusCode == 200) {
-        Login login = Login.fromJson(response.data);
-
-        log(response.data.toString());
-
-        return login;
-      } else {
-        return null;
-      }
-    } catch (e) {
-      throw 'login error >> $e';
-    }
+    return _request(
+      () => Client.client.post(
+        '$baseUrl/login-odoo/',
+        data: {"username": email, "password": password},
+      ),
+      (data) => Login.fromJson(data),
+      'login',
+    );
   }
+
+  /* --------------------------- SERVER TIME --------------------------- */
 
   Future<ServerTime?> getServerTime() async {
-    String url = 'http://65.109.226.255:11000/server_time';
+    return _request(
+      () => Client.client.get('$baseUrl/server_time'),
+      (data) => ServerTime.fromJson(data),
+      'getServerTime',
+    );
+  }
 
+  /* ----------------------- MONTHLY ATTENDANCE ----------------------- */
+
+  Future<MonthlyAttendence?> getMonthlyAttendence(
+      int employeeId, int year, int month) async {
+    return _request(
+      () => Client.client.post(
+        '$baseUrl/monthly_attendance',
+        data: {
+          "employee_id": employeeId,
+          "year": year,
+          "month": month,
+        },
+      ),
+      (data) => MonthlyAttendence.fromJson(data),
+      'getMonthlyAttendence',
+    );
+  }
+
+  /* ----------------------------- CHECK IN ---------------------------- */
+
+  Future<Check?> checkIn(
+      int employeeId, String timeChecked, String deviceType) async {
+    return _request(
+      () => Client.client.post(
+        '$baseUrl/check_in',
+        data: {
+          "employee_id": employeeId,
+          "check_in": timeChecked,
+          "device_type": deviceType,
+        },
+      ),
+      (data) => Check.fromJson(data),
+      'checkIn',
+    );
+  }
+
+  /* ----------------------------- CHECK OUT --------------------------- */
+
+  Future<Check?> checkOut(
+      int employeeId, String timeChecked, String deviceType) async {
+    return _request(
+      () => Client.client.post(
+        '$baseUrl/check_out',
+        data: {
+          "employee_id": employeeId,
+          "check_out": timeChecked,
+          "device_type": deviceType,
+        },
+      ),
+      (data) => Check.fromJson(data),
+      'checkOut',
+    );
+  }
+
+  /* ---------------------- WORK FROM HOME ATTENDANCE ---------------------- */
+
+  Future<MonthlyAttendence?> getFromHomeAttendence(
+      int employeeId, int year, int month) async {
+    return _request(
+      () => Client.client.post(
+        '$baseUrl/monthly_work_from_home_attendance',
+        data: {
+          "employee_id": employeeId,
+          "year": year,
+          "month": month,
+        },
+      ),
+      (data) => MonthlyAttendence.fromJson(data),
+      'getFromHomeAttendence',
+    );
+  }
+
+  /* ----------------------------- APP VERSION ----------------------------- */
+
+  Future<AppVersion?> getAppVersion() async {
+    return _retryRequest(
+      () => Client.client.get(
+        'http://157.180.26.238/mariam/version_info.json',
+      ),
+      (data) {
+        if (data is String) {
+          return AppVersion.fromJson(json.decode(data));
+        }
+        return AppVersion.fromJson(data);
+      },
+    );
+  }
+
+  /* ========================= COMMON HELPERS ========================= */
+
+  /// Normal request
+  Future<T?> _request<T>(
+    Future<dynamic> Function() apiCall,
+    T Function(dynamic data) parser,
+    String tag,
+  ) async {
     try {
-      final response = await Client.client.get(url);
+      final response = await apiCall();
 
       if (response.statusCode == 200) {
-        ServerTime serverTime = ServerTime.fromJson(response.data);
-
-        log(response.data.toString());
-
-        return serverTime;
-      } else {
-        return null;
+        log('$tag => ${response.data}');
+        return parser(response.data);
       }
+
+      return null;
     } catch (e) {
-      throw 'getServerTime error >> $e';
+      throw '$tag error >> $e';
     }
   }
 
-  Future<MonthlyAttendence?> getMonthlyAttendence(int employeeId, int year, int month) async {
-    print('$employeeId -- $year -- $month');
+  /// Retry request (used for version check)
+  Future<T?> _retryRequest<T>(
+    Future<dynamic> Function() apiCall,
+    T Function(dynamic data) parser, {
+    int retries = 3,
+  }) async {
+    for (int i = 0; i < retries; i++) {
+      try {
+        final response = await apiCall();
 
-    String url = 'http://65.109.226.255:11000/monthly_attendance';
-
-    try {
-      final response = await Client.client.post(url, data: {"employee_id": employeeId, "year": year, "month": month});
-
-      if (response.statusCode == 200) {
-        MonthlyAttendence monthlyAttendence = MonthlyAttendence.fromJson(response.data);
-
-        log(response.data.toString());
-
-        return monthlyAttendence;
-      } else {
-        return null;
+        if (response.statusCode == 200) {
+          return parser(response.data);
+        }
+      } catch (_) {
+        if (i == retries - 1) rethrow;
+        await Future.delayed(const Duration(seconds: 1));
       }
-    } catch (e) {
-      throw 'getMonthlyAttendence error >> $e';
     }
-  }
-
-  Future<Check?> checkIn(int employeeId, String timeChecked, String deviceType) async {
-    String url = 'http://65.109.226.255:11000/check_in';
-
-    try {
-      final response = await Client.client.post(
-        url,
-        data: {"employee_id": employeeId, "check_in": timeChecked, "device_type": deviceType},
-      );
-
-      if (response.statusCode == 200) {
-        Check check = Check.fromJson(response.data);
-
-        log(response.data.toString());
-
-        return check;
-      } else {
-        return null;
-      }
-    } catch (e) {
-      throw 'checkIn error >> $e';
-    }
-  }
-
-  Future<Check?> checkOut(int employeeId, String timeChecked, String deviceType) async {
-    String url = 'http://65.109.226.255:11000/check_out';
-
-    try {
-      final response = await Client.client.post(
-        url,
-        data: {"employee_id": employeeId, "check_out": timeChecked, "device_type": deviceType},
-      );
-
-      if (response.statusCode == 200) {
-        Check check = Check.fromJson(response.data);
-
-        log(response.data.toString());
-
-        return check;
-      } else {
-        return null;
-      }
-    } catch (e) {
-      throw 'checkOut error >> $e';
-    }
-  }
-
-  Future<MonthlyAttendence?> getFromHomeAttendence(int employeeId, int year, int month) async {
-    print('$employeeId -- $year -- $month');
-
-    String url = 'http://65.109.226.255:11000/monthly_work_from_home_attendance';
-
-    try {
-      final response = await Client.client.post(url, data: {"employee_id": employeeId, "year": year, "month": month});
-
-      if (response.statusCode == 200) {
-        MonthlyAttendence monthlyAttendence = MonthlyAttendence.fromJson(response.data);
-
-        log(response.data.toString());
-
-        return monthlyAttendence;
-      } else {
-        return null;
-      }
-    } catch (e) {
-      throw 'getMonthlyAttendence error >> $e';
-    }
+    return null;
   }
 }

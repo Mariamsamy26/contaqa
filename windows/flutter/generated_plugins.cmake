@@ -3,11 +3,12 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  auto_updater_windows
   connectivity_plus
   file_selector_windows
   flutter_inappwebview_windows
-  flutter_localization
   geolocator_windows
+  permission_handler_windows
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
