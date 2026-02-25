@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:contaqa/app/attendence_cycle/models/app_version.dart';
@@ -29,16 +32,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool hidePassword = true;
 
-  late AppVersion appVersionInfo = AppVersion(
-    versionCode: 1,
-    versionName: '1.0.6',
-    apkUrl: '',
-    forceUpdate: false,
-  );
-
   double downloadProgress = 0.0;
   String downloadSpeed = '0 KB/s';
   bool isDownloading = false;
+  AppVersion? appVersionInfo;
 
   String version = "0.0.0";
   String versionWithoutBuildNumber = "0.0.0";
@@ -55,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final info = await PackageInfo.fromPlatform();
     setState(() {
       version = "${info.version}+${info.buildNumber}";
-      versionWithoutBuildNumber = "${info.version}";
+      versionWithoutBuildNumber = info.version;
     });
 
     await checkForUpdates();
@@ -69,7 +66,6 @@ class _LoginScreenState extends State<LoginScreen> {
   ) {
     if (serverVersionName == null) return false;
 
-    // 1. Compare version names (e.g., "1.0.6")
     List<int> localParts = localVersionName
         .split('+')[0]
         .split('.')
@@ -84,113 +80,134 @@ class _LoginScreenState extends State<LoginScreen> {
     for (int i = 0; i < 3; i++) {
       int localPart = i < localParts.length ? localParts[i] : 0;
       int serverPart = i < serverParts.length ? serverParts[i] : 0;
-      if (serverPart > localPart) return true; // Server version is higher
-      if (serverPart < localPart) return false; // Local version is higher
+      if (serverPart > localPart) return true;
+      if (serverPart < localPart) return false;
     }
 
-    // 2. If version names are exactly the same, compare build numbers
     if (serverBuildNumber != null) {
       int localBuild = int.tryParse(localBuildNumber) ?? 0;
-      if (serverBuildNumber > localBuild) return true; // Server build is higher
+      if (serverBuildNumber > localBuild) return true;
     }
 
     return false;
   }
 
   Future<void> checkForUpdates() async {
-    final info = await PackageInfo.fromPlatform();
-    final localName = info.version;
-    final localBuild = info.buildNumber;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final localName = info.version;
+      final localBuild = info.buildNumber;
 
-    final serverVersion = await AttendenceApis().getAppVersion();
-    if (serverVersion == null) {
-      print('Failed to fetch app version from server.');
-      return;
-    }
+      final serverVersion = await AttendenceApis().getAppVersion();
+      if (serverVersion == null) {
+        log('Failed to fetch app version from server.');
+        return;
+      }
 
-    setState(() {
-      appVersionInfo = serverVersion;
-    });
+      setState(() {
+        appVersionInfo = serverVersion;
+      });
 
-    print(
-      'Current local: $localName+$localBuild -- server: ${serverVersion.versionName}+${serverVersion.versionCode}',
-    );
-
-    bool updateNeeded = _isUpdateRequired(
-      localName,
-      localBuild,
-      serverVersion.versionName,
-      serverVersion.versionCode,
-    );
-
-    setState(() {
-      forceUpdateRequired =
-          updateNeeded && (serverVersion.forceUpdate ?? false);
-    });
-
-    setState(() {
-      isUpdateAvailable = updateNeeded;
-    });
-
-    if (updateNeeded &&
-        appVersionInfo.apkUrl != null &&
-        appVersionInfo.apkUrl!.isNotEmpty) {
-      print('Update Required!');
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => UnClosableOkDialog(
-          text:
-              // 'New version available (${serverVersion.versionName}+${serverVersion.versionCode})',
-              'New version available (${serverVersion.versionName})',
-          onPressed: () {
-            setState(() => isDownloading = true);
-            downloadAndInstallApk(
-              appVersionInfo.apkUrl!,
-              onProgress: (p) => setState(() => downloadProgress = p),
-              onSpeed: (s) => setState(() => downloadSpeed = s),
-            );
-            Navigator.pop(context);
-          },
-        ),
+      bool updateNeeded = _isUpdateRequired(
+        localName,
+        localBuild,
+        serverVersion.versionName,
+        serverVersion.versionCode,
       );
-    } else {
-      print('No update required.');
+
+      setState(() {
+        forceUpdateRequired =
+            updateNeeded && (serverVersion.forceUpdate ?? false);
+        isUpdateAvailable = updateNeeded;
+      });
+
+      if (updateNeeded &&
+          serverVersion.apkUrl != null &&
+          serverVersion.apkUrl!.isNotEmpty) {
+        if (!mounted) return;
+
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => UnClosableOkDialog(
+            text: 'New version available (${serverVersion.versionName})',
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => isDownloading = true);
+              downloadAndInstallApk(serverVersion.apkUrl!);
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      log('Error in checkForUpdates: $e');
     }
   }
 
-  Future<void> downloadAndInstallApk(
-    String apkURL, {
-    required Function(double progress) onProgress,
-    required Function(String speedText) onSpeed,
-  }) async {
-    try {
-      print('Starting download from: $apkURL');
-      final dir = await getExternalStorageDirectory();
-      final file = File('${dir!.path}/app-release.apk');
+  Future<void> downloadAndInstallApk(String apkURL) async {
+    int retryCount = 0;
+    const int maxRetries = 3;
 
-      // Delete old file if exists
-      if (await file.exists()) {
-        await file.delete();
-      }
+    while (retryCount < maxRetries) {
+      try {
+        log('Starting download attempt ${retryCount + 1} from: $apkURL');
+        final dir = await getExternalStorageDirectory();
+        if (dir == null) throw 'Could not access external storage';
+        final file = File('${dir.path}/app-release.apk');
 
-      int lastReceived = 0;
-      DateTime lastUpdateTime = DateTime.now();
-      bool isDone = false;
-
-      Future<void> completeInstallation() async {
-        if (isDone) return;
-        isDone = true;
-
-        print('Download completed. File saved at: ${file.path}');
-        print('Closing dialog and triggering installation...');
-
-        if (mounted) {
-          Navigator.pop(context);
+        if (await file.exists()) {
+          await file.delete();
         }
 
+        int lastReceived = 0;
+        DateTime lastUpdateTime = DateTime.now();
+
+        final dio = Dio();
+        await dio.download(
+          apkURL,
+          file.path,
+          options: Options(
+            followRedirects: true,
+            receiveTimeout: const Duration(minutes: 10),
+            sendTimeout: const Duration(minutes: 1),
+            headers: {
+              'Connection': 'Keep-Alive',
+              'Keep-Alive': 'timeout=60, max=100',
+            },
+          ),
+          onReceiveProgress: (received, total) {
+            final now = DateTime.now();
+            final diffMs = now.difference(lastUpdateTime).inMilliseconds;
+
+            if (diffMs >= 1000) {
+              final bytesDiff = received - lastReceived;
+              final speedBytesPerSec = bytesDiff / (diffMs / 1000);
+
+              String speedText;
+              if (speedBytesPerSec >= 1024 * 1024) {
+                speedText =
+                    '${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} MB/s';
+              } else {
+                speedText =
+                    '${(speedBytesPerSec / 1024).toStringAsFixed(0)} KB/s';
+              }
+
+              if (mounted) {
+                setState(() => downloadSpeed = speedText);
+              }
+              lastReceived = received;
+              lastUpdateTime = now;
+            }
+
+            if (total > 0 && mounted) {
+              setState(() => downloadProgress = received / total);
+            }
+          },
+        );
+
+        log('Download completed. File saved at: ${file.path}');
         final result = await OpenFilex.open(file.path);
-        print('OpenFilex result: ${result.type} - ${result.message}');
+        log('OpenFilex result: ${result.type} - ${result.message}');
 
         if (result.type != ResultType.done && mounted) {
           showDialog(
@@ -200,64 +217,30 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
 
-        setState(() {
-          isDownloading = false;
-          downloadProgress = 0.0;
-        });
-      }
-
-      await Dio()
-          .download(
-            apkURL,
-            file.path,
-            options: Options(
-              followRedirects: true,
-              receiveTimeout: const Duration(minutes: 5),
-            ),
-            onReceiveProgress: (received, total) {
-              final now = DateTime.now();
-              final diffMs = now.difference(lastUpdateTime).inMilliseconds;
-
-              if (diffMs >= 1000) {
-                final bytesDiff = received - lastReceived;
-                final speedBytesPerSec = bytesDiff / (diffMs / 1000);
-
-                String speedText;
-                if (speedBytesPerSec >= 1024 * 1024) {
-                  speedText =
-                      '${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} MB/s';
-                } else {
-                  speedText =
-                      '${(speedBytesPerSec / 1024).toStringAsFixed(0)} KB/s';
-                }
-
-                onSpeed(speedText);
-                lastReceived = received;
-                lastUpdateTime = now;
-              }
-
-              if (total > 0) {
-                final progress = received / total;
-                onProgress(progress);
-                if (progress >= 1.0) {
-                  completeInstallation();
-                }
-              }
-            },
-          )
-          .then((_) => completeInstallation());
-    } catch (e) {
-      print('Error during download or install: $e');
-      if (mounted) {
-        if (isDownloading) Navigator.pop(context);
-        showDialog(
-          context: context,
-          builder: (context) => OkDialog(text: 'Update failed: $e'),
-        );
-        setState(() {
-          isDownloading = false;
-          downloadProgress = 0.0;
-        });
+        if (mounted) {
+          setState(() {
+            isDownloading = false;
+            downloadProgress = 0.0;
+          });
+        }
+        return; // Success
+      } catch (e) {
+        log('Error during download (attempt ${retryCount + 1}): $e');
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => OkDialog(text: 'Update failed: $e'),
+            );
+            setState(() {
+              isDownloading = false;
+              downloadProgress = 0.0;
+            });
+          }
+        } else {
+          await Future.delayed(const Duration(seconds: 2));
+        }
       }
     }
   }
@@ -438,7 +421,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (isUpdateAvailable) ...[
                     SizedBox(height: 20.h),
                     if (!isDownloading)
-                      SizedBox()
+                      const SizedBox()
                     else ...[
                       LinearProgressIndicator(
                         value: downloadProgress,
