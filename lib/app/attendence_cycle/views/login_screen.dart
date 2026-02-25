@@ -7,16 +7,13 @@ import 'package:contaqa/app/attendence_cycle/widgets/UnClosable_Ok_Dialog.dart';
 import 'package:contaqa/app/home_cycle/views/pick_app_type_screen.dart';
 import 'package:contaqa/helpers/application_dimentions.dart';
 import 'package:contaqa/helpers/navigation_helper.dart';
-import 'package:contaqa/providers/language_provider.dart';
 import 'package:contaqa/styles/colors.dart';
 import 'package:contaqa/widget/ok_dialog.dart';
-
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,22 +26,24 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool hidePassword = true;
 
-  // VERSION / UPDATE
   late AppVersion appVersionInfo = AppVersion(
     versionCode: 1,
-    versionName: '1.0.0',
+    versionName: '1.0.6',
     apkUrl: '',
     forceUpdate: false,
   );
 
-  bool forceUpdateRequired = false;
-  bool isUpdateAvailable = false;
-  bool isDownloading = false;
   double downloadProgress = 0.0;
   String downloadSpeed = '0 KB/s';
+  bool isDownloading = false;
+
+  String version = "0.0.0";
   String versionWithoutBuildNumber = "0.0.0";
+  bool forceUpdateRequired = false;
+  bool isUpdateAvailable = false;
 
   @override
   void initState() {
@@ -55,8 +54,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _getAppVersion() async {
     final info = await PackageInfo.fromPlatform();
     setState(() {
-      versionWithoutBuildNumber = info.version;
+      version = "${info.version}+${info.buildNumber}";
+      versionWithoutBuildNumber = "${info.version}";
     });
+
     await checkForUpdates();
   }
 
@@ -68,11 +69,14 @@ class _LoginScreenState extends State<LoginScreen> {
   ) {
     if (serverVersionName == null) return false;
 
+    // 1. Compare version names (e.g., "1.0.6")
     List<int> localParts = localVersionName
+        .split('+')[0]
         .split('.')
         .map((e) => int.tryParse(e) ?? 0)
         .toList();
     List<int> serverParts = serverVersionName
+        .split('+')[0]
         .split('.')
         .map((e) => int.tryParse(e) ?? 0)
         .toList();
@@ -80,14 +84,16 @@ class _LoginScreenState extends State<LoginScreen> {
     for (int i = 0; i < 3; i++) {
       int localPart = i < localParts.length ? localParts[i] : 0;
       int serverPart = i < serverParts.length ? serverParts[i] : 0;
-      if (serverPart > localPart) return true;
-      if (serverPart < localPart) return false;
+      if (serverPart > localPart) return true; // Server version is higher
+      if (serverPart < localPart) return false; // Local version is higher
     }
 
+    // 2. If version names are exactly the same, compare build numbers
     if (serverBuildNumber != null) {
       int localBuild = int.tryParse(localBuildNumber) ?? 0;
-      if (serverBuildNumber > localBuild) return true;
+      if (serverBuildNumber > localBuild) return true; // Server build is higher
     }
+
     return false;
   }
 
@@ -97,9 +103,18 @@ class _LoginScreenState extends State<LoginScreen> {
     final localBuild = info.buildNumber;
 
     final serverVersion = await AttendenceApis().getAppVersion();
-    if (serverVersion == null) return;
+    if (serverVersion == null) {
+      print('Failed to fetch app version from server.');
+      return;
+    }
 
-    setState(() => appVersionInfo = serverVersion);
+    setState(() {
+      appVersionInfo = serverVersion;
+    });
+
+    print(
+      'Current local: $localName+$localBuild -- server: ${serverVersion.versionName}+${serverVersion.versionCode}',
+    );
 
     bool updateNeeded = _isUpdateRequired(
       localName,
@@ -111,17 +126,23 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       forceUpdateRequired =
           updateNeeded && (serverVersion.forceUpdate ?? false);
+    });
+
+    setState(() {
       isUpdateAvailable = updateNeeded;
     });
 
     if (updateNeeded &&
         appVersionInfo.apkUrl != null &&
         appVersionInfo.apkUrl!.isNotEmpty) {
+      print('Update Required!');
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => UnClosableOkDialog(
-          text: 'New version available (${serverVersion.versionName})',
+          text:
+              // 'New version available (${serverVersion.versionName}+${serverVersion.versionCode})',
+              'New version available (${serverVersion.versionName})',
           onPressed: () {
             setState(() => isDownloading = true);
             downloadAndInstallApk(
@@ -133,18 +154,25 @@ class _LoginScreenState extends State<LoginScreen> {
           },
         ),
       );
+    } else {
+      print('No update required.');
     }
   }
 
   Future<void> downloadAndInstallApk(
     String apkURL, {
-    required Function(double) onProgress,
-    required Function(String) onSpeed,
+    required Function(double progress) onProgress,
+    required Function(String speedText) onSpeed,
   }) async {
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/app-release.apk');
-      if (await file.exists()) await file.delete();
+      print('Starting download from: $apkURL');
+      final dir = await getExternalStorageDirectory();
+      final file = File('${dir!.path}/app-release.apk');
+
+      // Delete old file if exists
+      if (await file.exists()) {
+        await file.delete();
+      }
 
       int lastReceived = 0;
       DateTime lastUpdateTime = DateTime.now();
@@ -154,13 +182,20 @@ class _LoginScreenState extends State<LoginScreen> {
         if (isDone) return;
         isDone = true;
 
-        if (mounted) Navigator.pop(context);
+        print('Download completed. File saved at: ${file.path}');
+        print('Closing dialog and triggering installation...');
+
+        if (mounted) {
+          Navigator.pop(context);
+        }
 
         final result = await OpenFilex.open(file.path);
+        print('OpenFilex result: ${result.type} - ${result.message}');
+
         if (result.type != ResultType.done && mounted) {
           showDialog(
             context: context,
-            builder: (_) =>
+            builder: (context) =>
                 OkDialog(text: 'Installer Error: ${result.message}'),
           );
         }
@@ -175,34 +210,49 @@ class _LoginScreenState extends State<LoginScreen> {
           .download(
             apkURL,
             file.path,
-            options: Options(receiveTimeout: const Duration(minutes: 5)),
+            options: Options(
+              followRedirects: true,
+              receiveTimeout: const Duration(minutes: 5),
+            ),
             onReceiveProgress: (received, total) {
               final now = DateTime.now();
               final diffMs = now.difference(lastUpdateTime).inMilliseconds;
+
               if (diffMs >= 1000) {
                 final bytesDiff = received - lastReceived;
                 final speedBytesPerSec = bytesDiff / (diffMs / 1000);
-                String speedText = speedBytesPerSec >= 1024 * 1024
-                    ? '${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} MB/s'
-                    : '${(speedBytesPerSec / 1024).toStringAsFixed(0)} KB/s';
+
+                String speedText;
+                if (speedBytesPerSec >= 1024 * 1024) {
+                  speedText =
+                      '${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} MB/s';
+                } else {
+                  speedText =
+                      '${(speedBytesPerSec / 1024).toStringAsFixed(0)} KB/s';
+                }
+
                 onSpeed(speedText);
                 lastReceived = received;
                 lastUpdateTime = now;
               }
+
               if (total > 0) {
                 final progress = received / total;
                 onProgress(progress);
-                if (progress >= 1.0) completeInstallation();
+                if (progress >= 1.0) {
+                  completeInstallation();
+                }
               }
             },
           )
           .then((_) => completeInstallation());
     } catch (e) {
+      print('Error during download or install: $e');
       if (mounted) {
         if (isDownloading) Navigator.pop(context);
         showDialog(
           context: context,
-          builder: (_) => OkDialog(text: 'Update failed: $e'),
+          builder: (context) => OkDialog(text: 'Update failed: $e'),
         );
         setState(() {
           isDownloading = false;
@@ -215,8 +265,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     AppDimentions().appDimentionsInit(context);
-    final languageProvider = context.watch<LanguageProvider>();
-
     return Scaffold(
       body: Form(
         key: _formKey,
@@ -232,23 +280,30 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(height: 50.h),
-                  Image.asset('assets/images/Contaqa_logo.png', height: 250.h),
-                  SizedBox(height: 10.h),
+
+                  Image.asset(
+                    'assets/images/Contaqa_logo.png',
+                    height: 250.h,
+                    width: 250.w,
+                  ),
+                  SizedBox(height: 20.h),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     validator: (email) {
-                      if (email == null || email.isEmpty)
-                        return languageProvider.translate('enter_email');
+                      if (email == null || email.isEmpty) {
+                        return 'Please enter an email address';
+                      }
                       final regex = RegExp(
                         r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
                       );
-                      if (!regex.hasMatch(email))
-                        return languageProvider.translate('valid_email');
+                      if (!regex.hasMatch(email)) {
+                        return 'Please enter a valid email address';
+                      }
                       return null;
                     },
                     decoration: InputDecoration(
-                      label: Text(languageProvider.translate('email')),
+                      label: const Text('Email'),
                       border: loginRegisterTextBorder,
                       enabledBorder: loginRegisterTextBorder,
                       errorBorder: loginRegisterTextBorder,
@@ -259,19 +314,24 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: hidePassword,
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                        ? languageProvider.translate('password_required')
-                        : null,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Password is required';
+                      }
+                      return null;
+                    },
                     decoration: InputDecoration(
-                      label: Text(languageProvider.translate('password')),
+                      label: const Text('Password'),
                       border: loginRegisterTextBorder,
                       enabledBorder: loginRegisterTextBorder,
                       errorBorder: loginRegisterTextBorder,
                       focusedBorder: loginRegisterTextBorder,
                       suffixIcon: GestureDetector(
-                        onTap: () =>
-                            setState(() => hidePassword = !hidePassword),
+                        onTap: () {
+                          setState(() {
+                            hidePassword = !hidePassword;
+                          });
+                        },
                         child: Icon(
                           hidePassword
                               ? Icons.remove_red_eye_outlined
@@ -281,16 +341,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   SizedBox(height: 150.h),
+
                   SizedBox(
                     height: 60.h,
                     child: ElevatedButton(
                       style: ButtonStyle(
-                        shape: MaterialStatePropertyAll(
+                        shape: MaterialStateProperty.all(
                           RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10.r),
                           ),
                         ),
-                        backgroundColor: MaterialStatePropertyAll(
+                        backgroundColor: MaterialStateProperty.all(
                           forceUpdateRequired ? Colors.grey : royalBlue,
                         ),
                       ),
@@ -299,58 +360,61 @@ class _LoginScreenState extends State<LoginScreen> {
                           : () async {
                               if (_formKey.currentState!.validate()) {
                                 Navigation().showLoadingGifDialog(context);
-                                final loginResponse = await AttendenceApis()
+
+                                await AttendenceApis()
                                     .login(
                                       _emailController.text,
                                       _passwordController.text,
-                                    );
-                                Navigation().closeDialog(context);
+                                    )
+                                    .then((loginResponse) async {
+                                      Navigation().closeDialog(context);
 
-                                if (loginResponse != null) {
-                                  if (loginResponse.status == 1 &&
-                                      loginResponse.employeeId != null) {
-                                    final pref =
-                                        await SharedPreferences.getInstance();
-                                    await pref.setInt(
-                                      'employee_id',
-                                      loginResponse.employeeId!,
-                                    );
-                                    await pref.setString(
-                                      'email',
-                                      _emailController.text,
-                                    );
-                                    await pref.setString(
-                                      'password',
-                                      _passwordController.text,
-                                    );
-                                    Navigation().goToScreenAndClearAll(
-                                      context,
-                                      (context) => const PickAppTypeScreen(),
-                                    );
-                                  } else {
-                                    showDialog(
-                                      context: context,
-                                      builder: (_) => OkDialog(
-                                        text: languageProvider.translate(
-                                          'check_credentials',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                } else {
-                                  showDialog(
-                                    context: context,
-                                    builder: (_) => OkDialog(
-                                      text: languageProvider.translate(
-                                        'login_failed',
-                                      ),
-                                    ),
-                                  );
-                                }
+                                      if (loginResponse != null) {
+                                        if (loginResponse.status == 1 &&
+                                            loginResponse.employeeId != null) {
+                                          final pref =
+                                              await SharedPreferences.getInstance();
+                                          await pref.setInt(
+                                            'employee_id',
+                                            loginResponse.employeeId!,
+                                          );
+                                          await pref.setString(
+                                            'email',
+                                            _emailController.text,
+                                          );
+                                          await pref.setString(
+                                            'password',
+                                            _passwordController.text,
+                                          );
+
+                                          Navigation().goToScreenAndClearAll(
+                                            context,
+                                            (context) =>
+                                                const PickAppTypeScreen(),
+                                          );
+                                        } else {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) => const OkDialog(
+                                              text:
+                                                  'Please Check your Credentials',
+                                            ),
+                                          );
+                                        }
+                                      } else {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => const OkDialog(
+                                            text: 'Login Failed: No Response',
+                                          ),
+                                        );
+                                      }
+                                    });
                               }
                             },
+
                       child: Text(
-                        languageProvider.translate('login'),
+                        'Login',
                         style: TextStyle(
                           fontSize: 18.sp,
                           fontWeight: FontWeight.w600,
@@ -358,63 +422,62 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  if (forceUpdateRequired)
-                    Padding(
-                      padding: EdgeInsets.only(top: 10.h),
-                      child: Center(
-                        child: Text(
-                          'Please update the app to continue',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
+                  if (forceUpdateRequired) ...[
+                    SizedBox(height: 10.h),
+                    Center(
+                      child: Text(
+                        'Please update the app to continue',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                  if (isUpdateAvailable && isDownloading)
-                    Padding(
-                      padding: EdgeInsets.only(top: 20.h),
-                      child: Column(
+                  ],
+                  if (isUpdateAvailable) ...[
+                    SizedBox(height: 20.h),
+                    if (!isDownloading)
+                      SizedBox()
+                    else ...[
+                      LinearProgressIndicator(
+                        value: downloadProgress,
+                        backgroundColor: Colors.grey[200],
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Colors.blue,
+                        ),
+                      ),
+                      SizedBox(height: 5.h),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          LinearProgressIndicator(
-                            value: downloadProgress,
-                            backgroundColor: Colors.grey[200],
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.blue,
+                          Text(
+                            '${(downloadProgress * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.sp,
                             ),
                           ),
-                          SizedBox(height: 5.h),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${(downloadProgress * 100).toStringAsFixed(0)}%',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12.sp,
-                                ),
-                              ),
-                              Text(
-                                downloadSpeed,
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12.sp,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            downloadSpeed,
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12.sp,
+                            ),
                           ),
                         ],
                       ),
-                    ),
+                    ],
+                  ],
                   SizedBox(height: 70.h),
+
                   Text(
                     versionWithoutBuildNumber,
-                    textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
                       fontSize: 15.sp,
+                      fontWeight: FontWeight.bold,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),

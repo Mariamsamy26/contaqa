@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:contaqa/app/attendence_cycle/views/login_screen.dart';
 import 'package:contaqa/app/home_cycle/providers/webview_provider.dart';
 import 'package:contaqa/app/home_cycle/views/pick_app_type_screen.dart';
 import 'package:contaqa/widget/ok_dialog.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -105,8 +104,6 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Center(
           child: Image.asset(
             'assets/images/Contaqa_logo.png',
-            height: 300.h,
-            width: 300.w,
             fit: BoxFit.cover,
           ),
         ),
