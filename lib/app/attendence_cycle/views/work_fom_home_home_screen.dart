@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -45,7 +44,11 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
       Navigation().showLoadingGifDialog(context);
 
       await initData();
-      var check = await AttendenceApis().checkIn(widget.employeeId, serverTimeForAPI, "work from home");
+      var check = await AttendenceApis().checkIn(
+        widget.employeeId,
+        serverTimeForAPI,
+        "work from home",
+      );
       //*work off home
 
       Navigation().closeDialog(context);
@@ -71,7 +74,11 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
       Navigation().showLoadingGifDialog(context);
 
       await initData();
-      var check = await AttendenceApis().checkOut(widget.employeeId, serverTimeForAPI, "work from home");
+      var check = await AttendenceApis().checkOut(
+        widget.employeeId,
+        serverTimeForAPI,
+        "work from home",
+      );
 
       Navigation().closeDialog(context);
 
@@ -98,31 +105,42 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
   }
 
   Future<void> checkIfQrCodeScannedTodayOrNot(DateTime serverTime) async {
-    await AttendenceApis().getFromHomeAttendence(widget.employeeId, serverTime.year, serverTime.month).then((attendence) async {
-      if (attendence!.status == 1) {
-        var todayAttendence = attendence.attendance!.firstWhere(
-          (element) => DateFormat('dd-MM-yyyy').format(element.checkIn!) == DateFormat('dd-MM-yyyy').format(serverTime),
-          orElse: () => Attendance(checkIn: null, checkOut: null, workedHours: null),
-        );
+    await AttendenceApis()
+        .getFromHomeAttendence(
+          widget.employeeId,
+          serverTime.year,
+          serverTime.month,
+        )
+        .then((attendence) async {
+          if (attendence!.status == 1) {
+            var todayAttendence = attendence.attendance!.firstWhere(
+              (element) =>
+                  DateFormat('dd-MM-yyyy').format(element.checkIn!) ==
+                  DateFormat('dd-MM-yyyy').format(serverTime),
+              orElse: () =>
+                  Attendance(checkIn: null, checkOut: null, workedHours: null),
+            );
 
-        if (todayAttendence.checkIn == null) {
-          checkInCompleted = false;
-          checkOutCompleted = false;
-        } else if (todayAttendence.checkIn != null && todayAttendence.checkOut == null) {
-          checkInCompleted = true;
-          checkOutCompleted = false;
-        } else if (todayAttendence.checkIn != null && todayAttendence.checkOut != null) {
-          checkInCompleted = true;
-          checkOutCompleted = true;
-        }
+            if (todayAttendence.checkIn == null) {
+              checkInCompleted = false;
+              checkOutCompleted = false;
+            } else if (todayAttendence.checkIn != null &&
+                todayAttendence.checkOut == null) {
+              checkInCompleted = true;
+              checkOutCompleted = false;
+            } else if (todayAttendence.checkIn != null &&
+                todayAttendence.checkOut != null) {
+              checkInCompleted = true;
+              checkOutCompleted = true;
+            }
 
-        setState(() {});
-      }
-      //* //* //*
-      else {
-        await initData();
-      }
-    });
+            setState(() {});
+          }
+          //* //* //*
+          else {
+            await initData();
+          }
+        });
   }
 
   @override
@@ -135,15 +153,25 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
     print('getTimeSheet called');
     Navigation().showLoadingGifDialog(context);
     //* //*
-    await AttendenceApis().getFromHomeAttendence(widget.employeeId, serverTime.year, serverTime.month).then((monthlyAttendence) {
-      Navigation().closeDialog(context);
-      //* //*
-      if (monthlyAttendence!.status == 1) {
-        Navigation().goToScreen(context, (context) => TimeSheetScreen(monthlyAttendence: monthlyAttendence));
-      } else {
-        getTimeSheet();
-      }
-    });
+    await AttendenceApis()
+        .getFromHomeAttendence(
+          widget.employeeId,
+          serverTime.year,
+          serverTime.month,
+        )
+        .then((monthlyAttendence) {
+          Navigation().closeDialog(context);
+          //* //*
+          if (monthlyAttendence!.status == 1) {
+            Navigation().goToScreen(
+              context,
+              (context) =>
+                  TimeSheetScreen(monthlyAttendence: monthlyAttendence),
+            );
+          } else {
+            getTimeSheet();
+          }
+        });
   }
 
   Future<void> initData() async {
@@ -156,7 +184,11 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
     String minute = timeParts[1];
     String second = timeParts[2];
 
-    serverTime = dateOfServer.date!.copyWith(hour: int.parse(hour), minute: int.parse(minute), second: int.parse(second));
+    serverTime = dateOfServer.date!.copyWith(
+      hour: int.parse(hour),
+      minute: int.parse(minute),
+      second: int.parse(second),
+    );
     // serverTime.
 
     serverTimeForAPI = DateFormat('yyyy-MM-ddTHH:mm:ss').format(serverTime);
@@ -216,7 +248,11 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
                     Text(
                       DateFormat('dd-MM-yyyy\nhh:mm a').format(serverTime),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.firaSans(fontSize: 30.sp, fontWeight: FontWeight.bold, color: black),
+                      style: GoogleFonts.firaSans(
+                        fontSize: 30.sp,
+                        fontWeight: FontWeight.bold,
+                        color: black,
+                      ),
                     ),
                     SizedBox(height: 10.h),
                     //* //*
@@ -228,7 +264,11 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
 
                         await initData();
 
-                        var check = await AttendenceApis().checkIn(widget.employeeId, serverTimeForAPI, "work from home");
+                        var check = await AttendenceApis().checkIn(
+                          widget.employeeId,
+                          serverTimeForAPI,
+                          "work from home",
+                        );
 
                         Navigation().closeDialog(context);
 
@@ -237,12 +277,14 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
 
                           showDialog(
                             context: context,
-                            builder: (context) => const OkDialog(text: 'Check IN is Completed'),
+                            builder: (context) =>
+                                const OkDialog(text: 'Check IN is Completed'),
                           );
                         } else {
                           showDialog(
                             context: context,
-                            builder: (context) => OkDialog(text: check.message!),
+                            builder: (context) =>
+                                OkDialog(text: check.message!),
                           );
                         }
 
@@ -250,28 +292,49 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
                       },
                       child: Card(
                         elevation: 4,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
                         child: Container(
                           height: 150.h,
                           width: AppDimentions().availableWidth * 0.7,
-                          decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(10.r)),
+                          decoration: BoxDecoration(
+                            color: white,
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.max,
                             children: [
                               SizedBox(width: 20.w),
-                              Image.asset('assets/images/check-in.png', height: 75.h, width: 75.w),
+                              Image.asset(
+                                'assets/images/check-in.png',
+                                height: 75.h,
+                                width: 75.w,
+                              ),
                               SizedBox(width: 20.w),
                               Text(
                                 languageProvider.translate('check_in'),
                                 maxLines: 2,
-                                style: GoogleFonts.firaSans(fontSize: 28.sp, fontWeight: FontWeight.bold, color: black),
+                                style: GoogleFonts.firaSans(
+                                  fontSize: 28.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: black,
+                                ),
                               ),
                               const Spacer(),
                               //Icon(Icons.arrow_forward_ios, size: 30, color: royalBlue),
                               checkInCompleted
-                                  ? Image.asset('assets/images/checked.png', height: 40.h, width: 30.w)
-                                  : Image.asset('assets/images/cross.png', height: 40.h, width: 30.w),
+                                  ? Image.asset(
+                                      'assets/images/checked.png',
+                                      height: 40.h,
+                                      width: 30.w,
+                                    )
+                                  : Image.asset(
+                                      'assets/images/cross.png',
+                                      height: 40.h,
+                                      width: 30.w,
+                                    ),
                               SizedBox(width: 10.w),
                             ],
                           ),
@@ -287,7 +350,11 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
 
                         await initData();
 
-                        var check = await AttendenceApis().checkOut(widget.employeeId, serverTimeForAPI, "work from home");
+                        var check = await AttendenceApis().checkOut(
+                          widget.employeeId,
+                          serverTimeForAPI,
+                          "work from home",
+                        );
 
                         Navigation().closeDialog(context);
 
@@ -296,12 +363,14 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
 
                           showDialog(
                             context: context,
-                            builder: (context) => const OkDialog(text: 'Check OUT is Completed'),
+                            builder: (context) =>
+                                const OkDialog(text: 'Check OUT is Completed'),
                           );
                         } else {
                           showDialog(
                             context: context,
-                            builder: (context) => OkDialog(text: check.message!),
+                            builder: (context) =>
+                                OkDialog(text: check.message!),
                           );
                         }
 
@@ -309,28 +378,49 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
                       },
                       child: Card(
                         elevation: 4,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
                         child: Container(
                           height: 150.h,
                           width: AppDimentions().availableWidth * 0.7,
-                          decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(10.r)),
+                          decoration: BoxDecoration(
+                            color: white,
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.max,
                             children: [
                               SizedBox(width: 20.w),
-                              Image.asset('assets/images/check-out.png', height: 75.h, width: 75.w),
+                              Image.asset(
+                                'assets/images/check-out.png',
+                                height: 75.h,
+                                width: 75.w,
+                              ),
                               SizedBox(width: 20.w),
                               Text(
                                 languageProvider.translate('check_out'),
                                 maxLines: 2,
-                                style: GoogleFonts.firaSans(fontSize: 28.sp, fontWeight: FontWeight.bold, color: black),
+                                style: GoogleFonts.firaSans(
+                                  fontSize: 28.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: black,
+                                ),
                               ),
                               const Spacer(),
                               //   Icon(Icons.arrow_forward_ios, size: 30, color: royalBlue),
                               checkOutCompleted
-                                  ? Image.asset('assets/images/checked.png', height: 40.h, width: 30.w)
-                                  : Image.asset('assets/images/cross.png', height: 40.h, width: 30.w),
+                                  ? Image.asset(
+                                      'assets/images/checked.png',
+                                      height: 40.h,
+                                      width: 30.w,
+                                    )
+                                  : Image.asset(
+                                      'assets/images/cross.png',
+                                      height: 40.h,
+                                      width: 30.w,
+                                    ),
                               SizedBox(width: 10.w),
                             ],
                           ),
@@ -344,21 +434,34 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
                       },
                       child: Card(
                         elevation: 4,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
                         child: Container(
                           height: 150.h,
                           width: AppDimentions().availableWidth * 0.7,
-                          decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(10.r)),
+                          decoration: BoxDecoration(
+                            color: white,
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.max,
                             children: [
                               SizedBox(width: 20.w),
-                              Image.asset('assets/images/clipboard.png', height: 75.h, width: 75.w),
+                              Image.asset(
+                                'assets/images/clipboard.png',
+                                height: 75.h,
+                                width: 75.w,
+                              ),
                               SizedBox(width: 20.w),
                               Text(
                                 languageProvider.translate('view_time_sheet'),
-                                style: GoogleFonts.firaSans(fontSize: 28.sp, fontWeight: FontWeight.bold, color: black),
+                                style: GoogleFonts.firaSans(
+                                  fontSize: 28.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: black,
+                                ),
                               ),
                               const Spacer(),
                               // Icon(Icons.arrow_forward_ios, size: 30, color: royalBlue),
@@ -371,7 +474,9 @@ class _WorkFromHomeScreenState extends State<WorkFromHomeScreen> {
                     //* //* //*
                   ],
                 )
-              : const Center(child: CircularProgressIndicator(color: royalBlue)),
+              : const Center(
+                  child: CircularProgressIndicator(color: royalBlue),
+                ),
         ),
       ),
     );

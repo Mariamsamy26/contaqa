@@ -37,15 +37,14 @@ class AttendenceApis {
   /* ----------------------- MONTHLY ATTENDANCE ----------------------- */
 
   Future<MonthlyAttendence?> getMonthlyAttendence(
-      int employeeId, int year, int month) async {
+    int employeeId,
+    int year,
+    int month,
+  ) async {
     return _request(
       () => Client.client.post(
         '$baseUrl/monthly_attendance',
-        data: {
-          "employee_id": employeeId,
-          "year": year,
-          "month": month,
-        },
+        data: {"employee_id": employeeId, "year": year, "month": month},
       ),
       (data) => MonthlyAttendence.fromJson(data),
       'getMonthlyAttendence',
@@ -55,7 +54,10 @@ class AttendenceApis {
   /* ----------------------------- CHECK IN ---------------------------- */
 
   Future<Check?> checkIn(
-      int employeeId, String timeChecked, String deviceType) async {
+    int employeeId,
+    String timeChecked,
+    String deviceType,
+  ) async {
     return _request(
       () => Client.client.post(
         '$baseUrl/check_in',
@@ -73,7 +75,10 @@ class AttendenceApis {
   /* ----------------------------- CHECK OUT --------------------------- */
 
   Future<Check?> checkOut(
-      int employeeId, String timeChecked, String deviceType) async {
+    int employeeId,
+    String timeChecked,
+    String deviceType,
+  ) async {
     return _request(
       () => Client.client.post(
         '$baseUrl/check_out',
@@ -91,15 +96,14 @@ class AttendenceApis {
   /* ---------------------- WORK FROM HOME ATTENDANCE ---------------------- */
 
   Future<MonthlyAttendence?> getFromHomeAttendence(
-      int employeeId, int year, int month) async {
+    int employeeId,
+    int year,
+    int month,
+  ) async {
     return _request(
       () => Client.client.post(
         '$baseUrl/monthly_work_from_home_attendance',
-        data: {
-          "employee_id": employeeId,
-          "year": year,
-          "month": month,
-        },
+        data: {"employee_id": employeeId, "year": year, "month": month},
       ),
       (data) => MonthlyAttendence.fromJson(data),
       'getFromHomeAttendence',
@@ -110,9 +114,7 @@ class AttendenceApis {
 
   Future<AppVersion?> getAppVersion() async {
     return _retryRequest(
-      () => Client.client.get(
-        'http://157.180.26.238/mariam/version_info.json',
-      ),
+      () => Client.client.get('http://157.180.26.238/mariam/version_info.json'),
       (data) {
         if (data is String) {
           return AppVersion.fromJson(json.decode(data));

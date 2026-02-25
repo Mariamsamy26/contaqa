@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:contaqa/app/attendence_cycle/views/login_screen.dart';
 import 'package:contaqa/providers/language_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
@@ -12,8 +11,6 @@ import 'package:contaqa/app/attendence_cycle/models/monthly_attendence.dart';
 import 'package:contaqa/app/attendence_cycle/services/attendence_apis.dart';
 import 'package:contaqa/app/attendence_cycle/views/time_sheet_screen.dart';
 import 'package:contaqa/app/attendence_cycle/widgets/check_in_widget.dart';
-import 'package:contaqa/app/attendence_cycle/widgets/check_in_widget_ibrahim.dart';
-import 'package:contaqa/app/home_cycle/views/pick_app_type_screen.dart';
 import 'package:contaqa/helpers/application_dimentions.dart';
 import 'package:contaqa/helpers/navigation_helper.dart';
 import 'package:contaqa/styles/colors%20copy.dart';
@@ -22,20 +19,6 @@ import 'package:contaqa/widget/ok_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-//* CURRENT LATLNG >> 29.973335 , 31.287904
-import 'dart:async';
-import 'dart:io';
-
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-import 'package:intl/intl.dart';
-import 'package:location/location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 //* CURRENT LATLNG >> 29.973335 , 31.287904

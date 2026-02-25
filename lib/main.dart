@@ -22,10 +22,8 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  //* ENABLE ACCEPT CERTIFICATES
+  // Ensure secure connections are accepted
   HttpOverrides.global = MyHttpOverrides();
-
-  //* //* //* //* NOTIFICATION SETUP
 
   runApp(
     MultiProvider(
@@ -70,10 +68,8 @@ class MyApp extends StatelessWidget {
               theme: ThemeData(
                 useMaterial3: false,
                 appBarTheme: AppBarTheme(
-                  //  actionsIconTheme: const IconThemeData(color: mainPurble),
                   iconTheme: const IconThemeData(color: black),
                   centerTitle: true,
-
                   backgroundColor: Colors.white,
                   surfaceTintColor: Colors.white,
                   elevation: 1,
@@ -82,11 +78,6 @@ class MyApp extends StatelessWidget {
                     fontSize: 25.sp,
                     color: royalBlue,
                   ),
-
-                  // titleTextStyle: TextStyle(
-                  //     fontSize: 20.sp,
-                  //     color: royalBlue,
-                  //     fontWeight: FontWeight.w700),
                 ),
               ),
               home: child,

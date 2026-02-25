@@ -68,8 +68,14 @@ class _LoginScreenState extends State<LoginScreen> {
   ) {
     if (serverVersionName == null) return false;
 
-    List<int> localParts = localVersionName.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    List<int> serverParts = serverVersionName.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    List<int> localParts = localVersionName
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
+    List<int> serverParts = serverVersionName
+        .split('.')
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
 
     for (int i = 0; i < 3; i++) {
       int localPart = i < localParts.length ? localParts[i] : 0;
@@ -103,11 +109,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     setState(() {
-      forceUpdateRequired = updateNeeded && (serverVersion.forceUpdate ?? false);
+      forceUpdateRequired =
+          updateNeeded && (serverVersion.forceUpdate ?? false);
       isUpdateAvailable = updateNeeded;
     });
 
-    if (updateNeeded && appVersionInfo.apkUrl != null && appVersionInfo.apkUrl!.isNotEmpty) {
+    if (updateNeeded &&
+        appVersionInfo.apkUrl != null &&
+        appVersionInfo.apkUrl!.isNotEmpty) {
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -151,7 +160,8 @@ class _LoginScreenState extends State<LoginScreen> {
         if (result.type != ResultType.done && mounted) {
           showDialog(
             context: context,
-            builder: (_) => OkDialog(text: 'Installer Error: ${result.message}'),
+            builder: (_) =>
+                OkDialog(text: 'Installer Error: ${result.message}'),
           );
         }
 
@@ -161,30 +171,32 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
 
-      await Dio().download(
-        apkURL,
-        file.path,
-        options: Options(receiveTimeout: const Duration(minutes: 5)),
-        onReceiveProgress: (received, total) {
-          final now = DateTime.now();
-          final diffMs = now.difference(lastUpdateTime).inMilliseconds;
-          if (diffMs >= 1000) {
-            final bytesDiff = received - lastReceived;
-            final speedBytesPerSec = bytesDiff / (diffMs / 1000);
-            String speedText = speedBytesPerSec >= 1024 * 1024
-                ? '${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} MB/s'
-                : '${(speedBytesPerSec / 1024).toStringAsFixed(0)} KB/s';
-            onSpeed(speedText);
-            lastReceived = received;
-            lastUpdateTime = now;
-          }
-          if (total > 0) {
-            final progress = received / total;
-            onProgress(progress);
-            if (progress >= 1.0) completeInstallation();
-          }
-        },
-      ).then((_) => completeInstallation());
+      await Dio()
+          .download(
+            apkURL,
+            file.path,
+            options: Options(receiveTimeout: const Duration(minutes: 5)),
+            onReceiveProgress: (received, total) {
+              final now = DateTime.now();
+              final diffMs = now.difference(lastUpdateTime).inMilliseconds;
+              if (diffMs >= 1000) {
+                final bytesDiff = received - lastReceived;
+                final speedBytesPerSec = bytesDiff / (diffMs / 1000);
+                String speedText = speedBytesPerSec >= 1024 * 1024
+                    ? '${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(2)} MB/s'
+                    : '${(speedBytesPerSec / 1024).toStringAsFixed(0)} KB/s';
+                onSpeed(speedText);
+                lastReceived = received;
+                lastUpdateTime = now;
+              }
+              if (total > 0) {
+                final progress = received / total;
+                onProgress(progress);
+                if (progress >= 1.0) completeInstallation();
+              }
+            },
+          )
+          .then((_) => completeInstallation());
     } catch (e) {
       if (mounted) {
         if (isDownloading) Navigator.pop(context);
@@ -226,9 +238,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     validator: (email) {
-                      if (email == null || email.isEmpty) return languageProvider.translate('enter_email');
-                      final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-                      if (!regex.hasMatch(email)) return languageProvider.translate('valid_email');
+                      if (email == null || email.isEmpty)
+                        return languageProvider.translate('enter_email');
+                      final regex = RegExp(
+                        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                      );
+                      if (!regex.hasMatch(email))
+                        return languageProvider.translate('valid_email');
                       return null;
                     },
                     decoration: InputDecoration(
@@ -243,7 +259,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: hidePassword,
-                    validator: (value) => (value == null || value.trim().isEmpty)
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty)
                         ? languageProvider.translate('password_required')
                         : null,
                     decoration: InputDecoration(
@@ -253,8 +270,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       errorBorder: loginRegisterTextBorder,
                       focusedBorder: loginRegisterTextBorder,
                       suffixIcon: GestureDetector(
-                        onTap: () => setState(() => hidePassword = !hidePassword),
-                        child: Icon(hidePassword ? Icons.remove_red_eye_outlined : Icons.remove_red_eye),
+                        onTap: () =>
+                            setState(() => hidePassword = !hidePassword),
+                        child: Icon(
+                          hidePassword
+                              ? Icons.remove_red_eye_outlined
+                              : Icons.remove_red_eye,
+                        ),
                       ),
                     ),
                   ),
@@ -263,44 +285,76 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 60.h,
                     child: ElevatedButton(
                       style: ButtonStyle(
-                        shape: MaterialStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r))),
-                        backgroundColor: MaterialStatePropertyAll(forceUpdateRequired ? Colors.grey : royalBlue),
+                        shape: MaterialStatePropertyAll(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                        ),
+                        backgroundColor: MaterialStatePropertyAll(
+                          forceUpdateRequired ? Colors.grey : royalBlue,
+                        ),
                       ),
                       onPressed: forceUpdateRequired
                           ? null
                           : () async {
                               if (_formKey.currentState!.validate()) {
                                 Navigation().showLoadingGifDialog(context);
-                                final loginResponse = await AttendenceApis().login(
-                                  _emailController.text,
-                                  _passwordController.text,
-                                );
+                                final loginResponse = await AttendenceApis()
+                                    .login(
+                                      _emailController.text,
+                                      _passwordController.text,
+                                    );
                                 Navigation().closeDialog(context);
 
                                 if (loginResponse != null) {
-                                  if (loginResponse.status == 1 && loginResponse.employeeId != null) {
-                                    final pref = await SharedPreferences.getInstance();
-                                    await pref.setInt('employee_id', loginResponse.employeeId!);
-                                    await pref.setString('email', _emailController.text);
-                                    await pref.setString('password', _passwordController.text);
-                                    Navigation().goToScreenAndClearAll(context, (context) => const PickAppTypeScreen());
+                                  if (loginResponse.status == 1 &&
+                                      loginResponse.employeeId != null) {
+                                    final pref =
+                                        await SharedPreferences.getInstance();
+                                    await pref.setInt(
+                                      'employee_id',
+                                      loginResponse.employeeId!,
+                                    );
+                                    await pref.setString(
+                                      'email',
+                                      _emailController.text,
+                                    );
+                                    await pref.setString(
+                                      'password',
+                                      _passwordController.text,
+                                    );
+                                    Navigation().goToScreenAndClearAll(
+                                      context,
+                                      (context) => const PickAppTypeScreen(),
+                                    );
                                   } else {
                                     showDialog(
                                       context: context,
-                                      builder: (_) => OkDialog(text: languageProvider.translate('check_credentials')),
+                                      builder: (_) => OkDialog(
+                                        text: languageProvider.translate(
+                                          'check_credentials',
+                                        ),
+                                      ),
                                     );
                                   }
                                 } else {
                                   showDialog(
                                     context: context,
-                                    builder: (_) => OkDialog(text: languageProvider.translate('login_failed')),
+                                    builder: (_) => OkDialog(
+                                      text: languageProvider.translate(
+                                        'login_failed',
+                                      ),
+                                    ),
                                   );
                                 }
                               }
                             },
                       child: Text(
                         languageProvider.translate('login'),
-                        style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -310,7 +364,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Center(
                         child: Text(
                           'Please update the app to continue',
-                          style: TextStyle(color: Colors.red, fontSize: 14.sp, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -322,22 +380,42 @@ class _LoginScreenState extends State<LoginScreen> {
                           LinearProgressIndicator(
                             value: downloadProgress,
                             backgroundColor: Colors.grey[200],
-                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Colors.blue,
+                            ),
                           ),
                           SizedBox(height: 5.h),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('${(downloadProgress * 100).toStringAsFixed(0)}%',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.sp)),
-                              Text(downloadSpeed, style: TextStyle(color: Colors.grey, fontSize: 12.sp)),
+                              Text(
+                                '${(downloadProgress * 100).toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.sp,
+                                ),
+                              ),
+                              Text(
+                                downloadSpeed,
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12.sp,
+                                ),
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
                   SizedBox(height: 70.h),
-                  Text(versionWithoutBuildNumber, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.sp)),
+                  Text(
+                    versionWithoutBuildNumber,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15.sp,
+                    ),
+                  ),
                 ],
               ),
             ),

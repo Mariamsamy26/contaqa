@@ -137,6 +137,10 @@ class HrLeaveProvider extends ChangeNotifier {
 
     final pref = await SharedPreferences.getInstance();
     pref.clear();
+    pref.remove('employee_id');
+    pref.remove('email');
+    pref.remove('password');
+    pref.clear();
   }
 
   bool isLoading = false;
